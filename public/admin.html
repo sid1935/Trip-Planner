@@ -162,7 +162,9 @@
         '<div class="row"><button class="btn primary" data-a="saveCfg"' + (A.busy ? ' disabled' : '') + '>Save settings</button></div></div>';
 
       h += '<div class="card"><h2>Tools</h2>' +
-        '<p class="muted" style="margin-top:0">Testing</p><div class="row" style="margin-top:0">' +
+        '<p class="muted" style="margin-top:0">Start a new trip</p><div class="row" style="margin-top:0">' +
+        '<button class="btn danger" data-a="resetAll">Reset everything: clear all answers & the current vote</button></div>' +
+        '<p class="muted">Testing</p><div class="row" style="margin-top:0">' +
         '<button class="btn" data-a="addSamples">Fill sample answers for missing friends</button>' +
         '<button class="btn" data-a="sampleVotes">Sample friends vote</button>' +
         '<button class="btn danger" data-a="removeSamples">Remove sample answers</button></div>' +
@@ -181,7 +183,13 @@
 
       /* destinations */
       h += '<div class="card"><h2>Destinations ' + (d.destinationsCustom ? '(custom)' : '(built-in)') + '</h2>' +
-        '<p class="muted" style="margin-top:0">Edit costs (dailyCost ₹/person/day; travel cost = ₹ round trip), travel hours, vibes, tags and best months. ' +
+        (d.ai && d.ai.enabled
+          ? '<p class="muted" style="margin-top:0">Instead of picking from the built-in list, let Gemini propose the candidates itself. ' +
+            'Optionally steer it below.</p>' +
+            '<textarea id="destHint" style="min-height:56px" placeholder="e.g. more offbeat places, add some Europe options, keep it budget-friendly"></textarea>' +
+            '<div class="row" style="margin-top:8px"><button class="btn primary" data-a="genDest"' + (A.busy ? ' disabled' : '') + '>✨ Generate destinations with AI</button></div>'
+          : '<p class="muted" style="margin-top:0">Turn on Gemini (set GEMINI_API_KEY in Vercel, then redeploy) to have AI propose destinations instead of editing this list by hand.</p>') +
+        '<p class="muted" style="margin-top:14px">Edit costs (dailyCost ₹/person/day; travel cost = ₹ round trip), travel hours, vibes, tags and best months. ' +
         'Cities come from the keys inside "travel".</p><textarea id="dest">' + esc(d.destinationsJSON) + '</textarea>' +
         '<div class="row"><button class="btn primary" data-a="saveDest">Save destinations</button>' +
         '<button class="btn danger" data-a="resetDest">Reset to built-in list</button></div></div>';
@@ -214,6 +222,8 @@
         }).catch(function (e) { A.busy = false; A.msg = e.message; A.msgKind = 'err'; draw(); });
       }
       if (a === 'saveCfg') return run('adminSaveConfig', [{ friends: val('friends'), organizer: val('organizer'), windowStart: val('ws'), windowEnd: val('we'), lockDeadline: val('dl'), rankingMode: val('rm') }], 'Settings saved.');
+      if (a === 'resetAll') return confirmTwice(el, function () { run('adminResetAll', [], 'Everything reset — ready for a new trip.'); });
+      if (a === 'genDest') return run('adminGenerateDestinations', [val('destHint')], '✨ Gemini generated a fresh destination list. Review it below, then Save if you tweak anything.');
       if (a === 'addSamples') return run('adminAddSamples', [], 'Sample answers added for friends who had none.');
       if (a === 'sampleVotes') return run('adminSampleVotes', [], 'Sample friends voted: ✅ on #1, 🤔 on #2, ❌ on #3.');
       if (a === 'removeSamples') return confirmTwice(el, function () { run('adminRemoveSamples', [], 'Sample answers (and their PINs) removed.'); });

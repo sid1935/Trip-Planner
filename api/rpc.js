@@ -11,8 +11,8 @@ const PUBLIC = [
   'aiFillPreferences', 'aiExplainResults'
 ];
 const ADMIN = [
-  'adminOverview', 'adminSaveConfig', 'adminSaveDestinations', 'adminAddSamples',
-  'adminRemoveSamples', 'adminSampleVotes', 'adminResetVoting', 'adminResetPin',
+  'adminOverview', 'adminSaveConfig', 'adminSaveDestinations', 'adminGenerateDestinations', 'adminAddSamples',
+  'adminRemoveSamples', 'adminSampleVotes', 'adminResetVoting', 'adminResetAll', 'adminResetPin',
   'adminResetAllPins', 'adminDeleteResponse', 'adminTestAi'
 ];
 
