@@ -1,0 +1,16 @@
+{
+  "name": "trip-planner",
+  "version": "1.0.0",
+  "description": "Group trip planner: preferences, ranked options, voting and lock-in.",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "test": "node test/run.js"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.1"
+  }
+}

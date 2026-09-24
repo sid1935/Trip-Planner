@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trip Planner Admin</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9A%99%EF%B8%8F%3C/text%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f6f5f1; --card: #ffffff; --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb;
+      --accent: #0f766e; --accent-soft: #e6f4f1; --bad: #b91c1c; --bad-soft: #fdecec; --warn-soft: #fff7e6; --seg: #f1f1ee;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 15px; line-height: 1.45; }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 80px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    h2 { font-size: 17px; margin: 0 0 12px; }
+    .sub, .muted { color: var(--muted); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+    .card.warn { background: var(--warn-soft); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 10px 0 4px; }
+    input[type=text], input[type=password], input[type=date], input[type=datetime-local], select, textarea {
+      width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 11px; background: var(--card);
+    }
+    textarea { min-height: 260px; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+    .btn { border: 1.5px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 14px; font-weight: 700; cursor: pointer; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.danger { border-color: var(--bad); color: var(--bad); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; background: var(--seg); color: var(--muted); }
+    .chip.on { background: var(--accent-soft); color: var(--accent); }
+    .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 16px; font-weight: 600; }
+    .msg.ok { background: var(--accent-soft); color: var(--accent); }
+    .msg.err { background: var(--bad-soft); color: var(--bad); }
+    .tablewrap { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #1f2937; color: #fff; position: sticky; top: 0; }
+    td.blk { color: var(--bad); }
+    .kv { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"><p class="muted">Loading…</p></div>
+
+  <script>
+  (function () {
+    var A = { key: '', data: null, msg: '', msgKind: 'ok', busy: false };
+    try { A.key = localStorage.getItem('tp_admin') || ''; } catch (e) {}
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function rpc(fn, args) {
+      return fetch('/api/rpc', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fn: fn, args: args || [], adminKey: A.key })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.ok) throw new Error(j.error || 'Server error');
+        return j.result;
+      });
+    }
+    function run(fn, args, okMsg) {
+      A.busy = true; draw();
+      return rpc(fn, args).then(function (d) {
+        A.data = d; A.busy = false; A.msg = okMsg || ''; A.msgKind = 'ok'; draw();
+      }).catch(function (e) {
+        A.busy = false; A.msg = e.message; A.msgKind = 'err';
+        if (/admin key/i.test(e.message)) { A.data = null; }
+        draw();
+      });
+    }
+    function download(name, text, type) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: type }));
+      a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    }
+    function csvCell(v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+
+    function viewLogin() {
+      return '<h1>Trip Planner Admin</h1><p class="sub">Enter the admin key (the ADMIN_KEY set in Vercel).</p>' +
+        (A.msg ? '<div class="msg ' + A.msgKind + '">' + esc(A.msg) + '</div>' : '') +
+        '<div class="card" style="max-width:420px"><label>Admin key</label><input type="password" id="k" autocomplete="off">' +
+        '<div class="row"><button class="btn primary" data-a="login">Open admin</button></div></div>' +
+        '<p><a href="/">← Back to the app</a></p>';
+    }
+
+    function resultsTable(res, friends) {
+      function cell(o, n) {
+        var r = o.people.filter(function (x) { return x.name === n; })[0];
+        if (!r) return '<td class="muted">—</td>';
+        if (r.blockers.length) return '<td class="blk">❌ ' + esc(r.blockers.join('; ')) + '</td>';
+        return '<td><b>' + r.score + '</b> · ₹' + Number(r.cost).toLocaleString('en-IN') + '<br><span class="muted">' +
+          esc(r.pros.concat(r.cons.map(function (c) { return '⚠ ' + c; })).join('; ')) + '</span></td>';
+      }
+      function rows(list, near) {
+        if (!list.length) return '<tr><td colspan="' + (6 + friends.length) + '" class="muted">None</td></tr>';
+        return list.map(function (o) {
+          return '<tr><td>' + (near ? '—' : '#' + o.rank) + '</td><td><b>' + esc(o.destination) + '</b><br><span class="muted">' + esc(o.region) + '</span></td>' +
+            '<td>' + esc(o.dateLabel) + '<br><span class="muted">' + esc(o.lengthLabel) + '</span>' +
+            (o.altDates && o.altDates.length ? '<br><span class="muted">Also: ' + esc(o.altDates.join(' · ')) + '</span>' : '') + '</td>' +
+            '<td>' + (o.fitsEveryone ? '✅' : '❌ ' + o.blockedCount) + '</td><td>' + o.groupScore + ' / ' + o.avgScore + '</td>' +
+            '<td>₹' + Number(o.costMin).toLocaleString('en-IN') + '–' + Number(o.costMax).toLocaleString('en-IN') + '</td>' +
+            friends.map(function (n) { return cell(o, n); }).join('') + '</tr>';
+        }).join('');
+      }
+      var head = '<tr><th>#</th><th>Destination</th><th>Dates</th><th>Fits all?</th><th>Group / avg</th><th>Cost</th>' +
+        friends.map(function (n) { return '<th>' + esc(n) + '</th>'; }).join('') + '</tr>';
+      return '<p class="muted">' + res.candidatesChecked + ' options checked · ' + res.submittedCount + ' of ' + res.totalFriends +
+        ' responses · ranking: ' + (res.rankingMode === 'average' ? 'average' : 'weakest (fairest)') + '</p>' +
+        '<div class="tablewrap"><table>' + head + rows(res.top, false) + '</table></div>' +
+        '<h2 style="margin-top:18px">Near misses (one person blocked)</h2>' +
+        '<div class="tablewrap"><table>' + head + rows(res.nearMisses, true) + '</table></div>';
+    }
+
+    function viewMain() {
+      var d = A.data, st = d.state, c = st.config, v = st.voting;
+      var submitted = st.submitted.map(function (s) { return s.name; });
+      var h = '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">' +
+        '<div><h1>Trip Planner Admin</h1><p class="sub" style="margin:0">Database: ' + esc(d.storeKind) +
+        (d.storeKind === 'memory' ? ' (local test only, data resets on restart)' : d.storeKind === 'supabase' ? ' (Postgres)' : '') + '</p></div>' +
+        '<div><a href="/">Open the app →</a> · <a href="#" data-a="logout">Log out</a></div></div><br>';
+      if (A.msg) h += '<div class="msg ' + A.msgKind + '">' + esc(A.msg) + '</div>';
+
+      /* status */
+      var decided = v.decision && v.shortlist ? v.shortlist.filter(function (o) { return o.key === v.decision; })[0] : null;
+      h += '<div class="card"><h2>Status</h2><div class="kv">' +
+        '<div class="muted">Submitted</div><div class="chips">' + c.friends.map(function (f) {
+          return '<span class="chip' + (submitted.indexOf(f) > -1 ? ' on' : '') + '">' + (submitted.indexOf(f) > -1 ? '✓ ' : '⏳ ') + esc(f) + '</span>';
+        }).join('') + '</div>' +
+        '<div class="muted">PIN set</div><div class="chips">' + c.friends.map(function (f) {
+          return '<span class="chip' + (st.pinSet.indexOf(f) > -1 ? ' on' : '') + '">' + (st.pinSet.indexOf(f) > -1 ? '🔒 ' : '— ') + esc(f) + '</span>';
+        }).join('') + '</div>' +
+        '<div class="muted">Voting</div><div>' + (decided ? '🎉 Decided: <b>' + esc(decided.destination) + '</b>, ' + esc(decided.dateLabel) + ' (' + esc(v.decidedAt) + ')'
+          : v.shortlist ? '🗳 Open since ' + esc(v.frozenAt) + ': ' + esc(v.shortlist.map(function (o) { return o.destination; }).join(' / ')) : 'Not opened yet') + '</div>' +
+        '<div class="muted">Preferences</div><div>' + (c.locked ? '🔒 Locked (deadline passed)' : 'Open' + (c.lockDeadline ? ' until ' + esc(c.lockDeadline) : '')) + '</div>' +
+        '<div class="muted">Gemini AI</div><div>' + (d.ai && d.ai.enabled
+          ? '✨ On (' + esc(d.ai.models.join(' → ')) + ') <button class="btn" style="padding:3px 10px;margin-left:6px" data-a="testAi">Test Gemini</button>'
+          : 'Off: add GEMINI_API_KEY in Vercel → Settings → Environment Variables, then redeploy') + '</div>' +
+        '</div></div>';
+
+      /* settings + tools */
+      h += '<div class="grid2"><div class="card"><h2>Settings</h2>' +
+        '<label>Friends (comma-separated)</label><input type="text" id="friends" value="' + esc(c.friends.join(', ')) + '">' +
+        '<label>Organiser (opens voting)</label><select id="organizer">' + c.friends.map(function (f) {
+          return '<option' + (f === c.organizer ? ' selected' : '') + '>' + esc(f) + '</option>';
+        }).join('') + '</select>' +
+        '<label>Trip window start</label><input type="date" id="ws" value="' + esc(c.windowStart) + '">' +
+        '<label>Trip window end</label><input type="date" id="we" value="' + esc(c.windowEnd) + '">' +
+        '<label>Preferences deadline (India time, optional)</label><input type="datetime-local" id="dl" value="' + esc((c.lockDeadline || '').slice(0, 16)) + '">' +
+        '<label>Ranking</label><select id="rm"><option value="weakest"' + (c.rankingMode === 'weakest' ? ' selected' : '') + '>Fairest (least-happy person)</option>' +
+        '<option value="average"' + (c.rankingMode === 'average' ? ' selected' : '') + '>Best average</option></select>' +
+        '<div class="row"><button class="btn primary" data-a="saveCfg"' + (A.busy ? ' disabled' : '') + '>Save settings</button></div></div>';
+
+      h += '<div class="card"><h2>Tools</h2>' +
+        '<p class="muted" style="margin-top:0">Testing</p><div class="row" style="margin-top:0">' +
+        '<button class="btn" data-a="addSamples">Fill sample answers for missing friends</button>' +
+        '<button class="btn" data-a="sampleVotes">Sample friends vote</button>' +
+        '<button class="btn danger" data-a="removeSamples">Remove sample answers</button></div>' +
+        '<p class="muted">Voting</p><div class="row" style="margin-top:0"><button class="btn danger" data-a="resetVoting">Start voting over</button></div>' +
+        '<p class="muted">PINs</p><div class="row" style="margin-top:0"><select id="pinName" style="width:auto">' +
+        c.friends.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join('') + '</select>' +
+        '<button class="btn" data-a="resetPin">Reset this PIN</button><button class="btn danger" data-a="resetAllPins">Reset all PINs</button></div>' +
+        '<p class="muted">Answers</p><div class="row" style="margin-top:0"><select id="delName" style="width:auto">' +
+        submitted.map(function (f) { return '<option>' + esc(f) + '</option>'; }).join('') + '</select>' +
+        '<button class="btn danger" data-a="delResp"' + (submitted.length ? '' : ' disabled') + '>Delete this person’s answers</button></div>' +
+        '<p class="muted">Export</p><div class="row" style="margin-top:0"><button class="btn" data-a="csv">Download answers (CSV)</button>' +
+        '<button class="btn" data-a="json">Download everything (JSON)</button></div></div></div>';
+
+      /* results */
+      h += '<div class="card"><h2>Results</h2>' + resultsTable(d.results, c.friends) + '</div>';
+
+      /* destinations */
+      h += '<div class="card"><h2>Destinations ' + (d.destinationsCustom ? '(custom)' : '(built-in)') + '</h2>' +
+        '<p class="muted" style="margin-top:0">Edit costs (dailyCost ₹/person/day; travel cost = ₹ round trip), travel hours, vibes, tags and best months. ' +
+        'Cities come from the keys inside "travel".</p><textarea id="dest">' + esc(d.destinationsJSON) + '</textarea>' +
+        '<div class="row"><button class="btn primary" data-a="saveDest">Save destinations</button>' +
+        '<button class="btn danger" data-a="resetDest">Reset to built-in list</button></div></div>';
+      return h;
+    }
+
+    function draw() {
+      document.getElementById('app').innerHTML = A.data ? viewMain() : viewLogin();
+    }
+
+    function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    function confirmTwice(btn, fn) {
+      if (btn.getAttribute('data-armed')) { fn(); return; }
+      btn.setAttribute('data-armed', '1'); var old = btn.textContent; btn.textContent = 'Click again to confirm';
+      setTimeout(function () { if (btn.isConnected) { btn.removeAttribute('data-armed'); btn.textContent = old; } }, 4000);
+    }
+
+    document.addEventListener('click', function (e) {
+      var el = e.target.closest('[data-a]'); if (!el) return;
+      var a = el.getAttribute('data-a'); e.preventDefault();
+      if (a === 'login') {
+        A.key = val('k'); try { localStorage.setItem('tp_admin', A.key); } catch (x) {}
+        return run('adminOverview', []);
+      }
+      if (a === 'logout') { A.key = ''; A.data = null; A.msg = ''; try { localStorage.removeItem('tp_admin'); } catch (x) {} return draw(); }
+      if (a === 'testAi') {
+        A.busy = true; draw();
+        return rpc('adminTestAi', []).then(function (r) {
+          A.busy = false; A.msg = r.ok ? '✨ Gemini works (model: ' + r.model + ').' : 'Gemini answered, but not as expected.'; A.msgKind = r.ok ? 'ok' : 'err'; draw();
+        }).catch(function (e) { A.busy = false; A.msg = e.message; A.msgKind = 'err'; draw(); });
+      }
+      if (a === 'saveCfg') return run('adminSaveConfig', [{ friends: val('friends'), organizer: val('organizer'), windowStart: val('ws'), windowEnd: val('we'), lockDeadline: val('dl'), rankingMode: val('rm') }], 'Settings saved.');
+      if (a === 'addSamples') return run('adminAddSamples', [], 'Sample answers added for friends who had none.');
+      if (a === 'sampleVotes') return run('adminSampleVotes', [], 'Sample friends voted: ✅ on #1, 🤔 on #2, ❌ on #3.');
+      if (a === 'removeSamples') return confirmTwice(el, function () { run('adminRemoveSamples', [], 'Sample answers (and their PINs) removed.'); });
+      if (a === 'resetVoting') return confirmTwice(el, function () { run('adminResetVoting', [], 'Voting cleared.'); });
+      if (a === 'resetPin') { var n = val('pinName'); return run('adminResetPin', [n], n + '’s PIN was reset.'); }
+      if (a === 'resetAllPins') return confirmTwice(el, function () { run('adminResetAllPins', [], 'All PINs reset.'); });
+      if (a === 'delResp') { var dn = val('delName'); return confirmTwice(el, function () { run('adminDeleteResponse', [dn], dn + '’s answers deleted.'); }); }
+      if (a === 'saveDest') return run('adminSaveDestinations', [val('dest')], 'Destinations saved.');
+      if (a === 'resetDest') return confirmTwice(el, function () { run('adminSaveDestinations', [null], 'Back to the built-in destinations.'); });
+      if (a === 'csv') {
+        var r = A.data.responses, cols = ['name', 'updatedAt', 'homeCity', 'lengths', 'leaveDays', 'budgetComfort', 'budgetMax', 'blockedWeekends', 'vibes', 'pace', 'maxTravelHrs', 'international', 'dealbreakers', 'interests', 'notes', 'sample'];
+        var lines = [cols.join(',')].concat(Object.keys(r).map(function (n) {
+          var x = r[n].data;
+          return [n, r[n].updatedAt, x.homeCity, (x.lengths || []).join(' '), x.leaveDays, x.budgetComfort, x.budgetMax, (x.blockedWeekends || []).join(' '),
+            JSON.stringify(x.vibes), x.pace, x.maxTravelHrs, x.international, (x.dealbreakers || []).join(' '), (x.interests || []).join(' '), x.notes, x.sample ? 'yes' : ''].map(csvCell).join(',');
+        }));
+        return download('trip-answers.csv', lines.join('\n'), 'text/csv');
+      }
+      if (a === 'json') return download('trip-planner-export.json', JSON.stringify(A.data, null, 2), 'application/json');
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && e.target.id === 'k') { e.preventDefault(); document.querySelector('[data-a="login"]').click(); }
+    });
+
+    if (A.key) run('adminOverview', []); else draw();
+  })();
+  </script>
+</body>
+</html>

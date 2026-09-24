@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trip Planner</title>
+  <meta name="description" content="Plan a group trip: everyone adds preferences, the app ranks the best options, the group votes and locks one.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%A7%B3%3C/text%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f6f5f1; --card: #ffffff; --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb;
+      --accent: #0f766e; --accent-soft: #e6f4f1; --bad: #b91c1c; --bad-soft: #fdecec;
+      --warn-soft: #fff7e6; --seg: #f1f1ee;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px; line-height: 1.45; -webkit-tap-highlight-color: transparent;
+    }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    .wrap { max-width: 600px; margin: 0 auto; padding: 18px 16px 120px; }
+
+    header.top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .brand { font-weight: 800; font-size: 17px; }
+    .me { font-size: 14px; color: var(--muted); }
+    .link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font-size: 14px; }
+
+    h1 { font-size: 25px; line-height: 1.2; margin: 0 0 6px; }
+    .sub { color: var(--muted); margin: 0 0 18px; }
+    .muted { color: var(--muted); }
+    .center { text-align: center; }
+    .hint { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
+    .label {
+      font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--muted); margin: 22px 0 10px;
+    }
+    .label .muted { text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    .card.warn { background: var(--warn-soft); }
+    .grid { display: grid; gap: 10px; }
+
+    .opt {
+      display: block; width: 100%; text-align: left; background: var(--card);
+      border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px;
+    }
+    .opt b { display: block; }
+    .opt small { display: block; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+    .opt.on { border-color: var(--accent); background: var(--accent-soft); }
+
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill { border: 1.5px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 14px; font-size: 15px; }
+    .pill.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .pill.neg.on { border-color: var(--bad); background: var(--bad); color: #fff; }
+
+    .vibe .vname { font-weight: 700; margin-bottom: 8px; }
+    .vibe { padding: 12px; margin: 0; }
+    .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--seg); padding: 4px; border-radius: 10px; }
+    .seg button { border: 0; background: transparent; padding: 8px 2px; border-radius: 7px; font-size: 13px; color: var(--muted); }
+    .seg button.on { background: var(--card); color: var(--ink); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.14); }
+    .seg button.on.l0 { color: var(--bad); }
+    .seg button.on.l3 { color: var(--accent); }
+
+    .money { display: flex; align-items: center; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); padding: 0 14px; }
+    .money span { color: var(--muted); font-weight: 700; font-size: 20px; }
+    .money input { border: 0; outline: 0; font: inherit; font-size: 22px; font-weight: 700; padding: 12px 8px; width: 100%; background: transparent; color: inherit; }
+    .money:focus-within { border-color: var(--accent); }
+
+    .weeks { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+    .week {
+      border: 1.5px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+      border-radius: 10px; padding: 10px 6px; font-size: 14px; font-weight: 600;
+    }
+    .week.off { border-color: var(--bad); background: var(--bad-soft); color: var(--bad); text-decoration: line-through; }
+
+    .progress { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+    .progress div { height: 100%; background: var(--accent); transition: width .25s; }
+    .stepno { font-size: 13px; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
+
+    .nav { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(246,245,241,.97); border-top: 1px solid var(--line); padding: 12px 16px; }
+    .nav .in { max-width: 600px; margin: 0 auto; display: flex; gap: 10px; }
+    .btn { flex: 1; border: 1.5px solid var(--line); background: var(--card); border-radius: 12px; padding: 14px; font-weight: 700; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; flex: 2; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .btn.inline { display: block; width: 100%; max-width: 280px; margin: 12px auto 0; }
+
+    .error { background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 10px 12px; margin-top: 16px; font-weight: 600; white-space: pre-wrap; }
+
+    .trk { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+    .bar div { height: 100%; background: var(--accent); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { border-radius: 999px; padding: 4px 11px; font-size: 14px; font-weight: 600; }
+    .chip.done { background: var(--accent-soft); color: var(--accent); }
+    .chip.wait { background: var(--seg); color: var(--muted); }
+
+    .rrow { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+    .rrow:last-child { border-bottom: 0; }
+    .rrow .k { color: var(--muted); font-size: 14px; width: 104px; flex-shrink: 0; }
+    .rrow .v { flex: 1; font-size: 15px; }
+
+    textarea {
+      width: 100%; min-height: 90px; border: 1.5px solid var(--line); border-radius: 12px;
+      padding: 12px; font: inherit; resize: vertical; background: var(--card); color: inherit;
+    }
+    textarea:focus { outline: 0; border-color: var(--accent); }
+
+    .hero { text-align: center; padding: 24px 16px; }
+    .hero .big { font-size: 42px; line-height: 1; margin-bottom: 8px; }
+
+    /* ---------- options screen ---------- */
+    .btn.cta { display: block; width: 100%; background: var(--accent); border-color: var(--accent); color: #fff; margin-bottom: 14px; }
+    .seg.two { grid-template-columns: 1fr 1fr; margin-bottom: 14px; }
+    .seg.two button { font-size: 14px; padding: 9px 4px; }
+    .ocard { padding: 18px 16px; }
+    .ocard.first { border: 2px solid var(--accent); }
+    .rank { display: inline-block; background: var(--accent); color: #fff; border-radius: 999px; padding: 2px 10px; font-weight: 800; font-size: 13px; }
+    .rank.alt { background: var(--seg); color: var(--muted); }
+    .dest { font-size: 23px; font-weight: 800; margin: 8px 0 2px; line-height: 1.2; }
+    .meta { color: var(--muted); font-size: 14px; }
+    .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+    .fact { background: var(--seg); border-radius: 10px; padding: 8px 10px; }
+    .fact b { display: block; font-size: 15px; }
+    .fact span { font-size: 12px; color: var(--muted); }
+    .summary { font-size: 14.5px; margin: 0 0 6px; }
+    .person { padding: 10px 0; border-top: 1px solid var(--line); }
+    .prow { display: grid; grid-template-columns: 82px 1fr 34px; gap: 10px; align-items: center; }
+    .pname { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pbar { height: 10px; background: var(--seg); border-radius: 99px; overflow: hidden; }
+    .pbar div { height: 100%; border-radius: 99px; }
+    .pbar .good { background: #0f766e; }
+    .pbar .ok { background: #d97706; }
+    .pbar .low { background: #dc2626; }
+    .pscore { font-weight: 800; text-align: right; font-size: 15px; }
+    .pwhy { font-size: 13px; color: var(--muted); margin: 4px 0 0 92px; }
+    .pwhy .neg { color: #b45309; }
+    .pwhy .blk { color: var(--bad); font-weight: 600; }
+    .also { font-size: 13.5px; color: var(--muted); margin-top: 12px; }
+    .legend { font-size: 13px; color: var(--muted); margin: -4px 0 14px; }
+    /* ---------- voting ---------- */
+    .vote { background: var(--seg); border-radius: 12px; padding: 12px; margin: 12px 0 6px; }
+    .vote .vlabel { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 8px; }
+    .seg.three { grid-template-columns: repeat(3, 1fr); background: var(--card); margin-bottom: 10px; }
+    .seg.three button { font-size: 14px; padding: 10px 2px; }
+    .seg.three button.on.v-in { background: var(--accent); color: #fff; }
+    .seg.three button.on.v-maybe { background: #d97706; color: #fff; }
+    .seg.three button.on.v-cant { background: var(--bad); color: #fff; }
+    .chip.no { background: var(--bad-soft); color: var(--bad); }
+    .chip.maybe { background: #fef3c7; color: #92400e; }
+    .vstatus { font-size: 14px; font-weight: 600; margin: 8px 0 0; }
+    .card.decided { background: var(--accent-soft); border: 2px solid var(--accent); text-align: center; padding: 24px 16px; }
+    .card.decided .big { font-size: 44px; line-height: 1; }
+    .card.decided .dest { font-size: 28px; }
+    .banner { display: block; width: 100%; text-align: left; background: var(--accent-soft); border: 1.5px solid var(--accent); color: var(--accent); border-radius: 14px; padding: 14px 16px; font-weight: 700; margin-bottom: 14px; }
+    .nudge textarea { min-height: 110px; font-size: 14px; background: var(--seg); }
+    .nudge-btns { display: flex; gap: 10px; margin-top: 10px; }
+    .btn.wa { background: #25d366; border-color: #25d366; color: #fff; text-align: center; text-decoration: none; }
+    .organiser { border-style: dashed; }
+
+    /* ---------- Gemini ---------- */
+    .card.ai { background: linear-gradient(180deg, #f3f0ff, #ffffff); border-color: #ddd6fe; margin-bottom: 4px; }
+    .ai-title { font-weight: 800; color: #5b21b6; }
+    .card.ai textarea { min-height: 84px; }
+    .btn.ai-btn { display: block; width: 100%; margin-top: 10px; background: #6d28d9; border-color: #6d28d9; color: #fff; }
+    .ai-ok { background: #ede9fe; color: #4c1d95; border-radius: 10px; padding: 10px 12px; margin-top: 12px; font-size: 14.5px; }
+    .ai-sum { background: #f5f3ff; border: 1px solid #ede9fe; border-radius: 12px; padding: 10px 12px; margin: 10px 0 4px; }
+    .ai-sum p { margin: 4px 0 0; font-size: 14.5px; }
+    .ai-sum p.neg { color: #92400e; }
+    .ai-label { font-size: 12px; font-weight: 700; color: #6d28d9; text-transform: uppercase; letter-spacing: .04em; }
+
+    /* ---------- PIN ---------- */
+    .pin {
+      display: block; width: 100%; max-width: 220px; border: 1.5px solid var(--line); border-radius: 12px;
+      padding: 12px 14px; font: inherit; font-size: 26px; letter-spacing: .5em; text-align: center;
+      background: var(--card); color: inherit;
+    }
+    .pin:focus { outline: 0; border-color: var(--accent); }
+    .check { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 15px; color: var(--muted); }
+    .check input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+    @media (max-width: 380px) {
+      .prow { grid-template-columns: 70px 1fr 30px; }
+      .pwhy { margin-left: 0; }
+      .facts { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"><p class="muted center" style="margin-top:48px">Loading…</p></div>
+
+  <!-- Bridge: same API as Apps Script's google.script.run, backed by /api/rpc on Vercel -->
+  <script>
+    (function () {
+      function call(fn, args, ok, fail) {
+        fetch("/api/rpc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fn: fn, args: args })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j && j.ok) { if (ok) ok(j.result); }
+          else if (fail) fail(new Error(j && j.error ? j.error : "Unknown server error"));
+        }).catch(function (e) {
+          if (fail) fail(new Error("Could not reach the server. Check your connection and try again."));
+        });
+      }
+      function runner(ok, fail) {
+        return new Proxy({}, {
+          get: function (_, name) {
+            if (name === "withSuccessHandler") return function (f) { return runner(f, fail); };
+            if (name === "withFailureHandler") return function (f) { return runner(ok, f); };
+            return function () { call(String(name), Array.prototype.slice.call(arguments), ok, fail); };
+          }
+        });
+      }
+      window.google = { script: { get run() { return runner(null, null); } } };
+    })();
+  </script>
+
+  <!-- Boot check: runs even if the main script below is broken -->
+  <script>
+    window.__tpStarted = false;
+    setTimeout(function () {
+      if (!window.__tpStarted) {
+        document.getElementById('app').innerHTML =
+          '<div style="background:#fdecec;color:#b91c1c;border-radius:12px;padding:16px;font-weight:600;margin-top:32px">' +
+          'The page did not start (code BOOT-1). Please reload the page. ' +
+          'If it keeps happening, try another browser.</div>';
+      }
+    }, 6000);
+  </script>
+
+  <script>
+    window.__tpStarted = true;
+  (function () {
+    /* ---------- state ---------- */
+    var S = {
+      st: null, me: null, d: null, has: false, step: 0, view: 'loading', saving: false, err: '', slow: false,
+      res: null, mode: null, resLoading: false, resErr: '', prevView: 'who',
+      busy: false, confirm: '', copied: false,
+      pin: null, pinErr: '', remember: true,
+      aiText: '', aiBusy: false, aiMsg: '', aiErr: '', aiFilled: [], aiByKey: {}, aiLoading: false
+    };
+
+    /* ---------- error safety net ---------- */
+    window.onerror = function (msg, src, line) {
+      if (S.view === 'loading') {
+        S.view = 'fatal';
+        S.err = 'Page error: ' + msg + (line ? ' (line ' + line + ')' : '');
+        draw();
+      }
+    };
+    function safe(fn) {
+      return function (x) {
+        try { fn(x); } catch (e) { fatal(e); }
+      };
+    }
+    function checkState(st) {
+      if (!st) {
+        throw new Error('The server returned no data. Please reload the page.');
+      }
+      if (!st.options || !st.weekends || !st.submitted || !st.voting || !st.pinSet || typeof st.ai === 'undefined') {
+        throw new Error('The app was just updated. Please reload the page.');
+      }
+    }
+    setTimeout(function () {
+      if (S.view === 'loading') { S.slow = true; draw(); }
+    }, 15000);
+
+    /* ---------- small helpers ---------- */
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function inr(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+    function has(list, v) { return list.indexOf(v) > -1; }
+    function O() { return S.st.options; }
+    function labelOf(list, id) {
+      for (var i = 0; i < list.length; i++) if (list[i][0] === id) return list[i][1];
+      return String(id);
+    }
+    function store(k, v) {
+      try {
+        if (v === undefined) return localStorage.getItem(k);
+        if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v);
+      } catch (e) { return null; }
+    }
+    function goTop() { window.scrollTo(0, 0); }
+    function submittedMap() {
+      var m = {};
+      (S.st.submitted || []).forEach(function (s) { m[s.name] = s.updatedAt; });
+      return m;
+    }
+    function fmtWhen(s) { return s ? String(s).replace('T', ' ').slice(0, 16) : ''; }
+
+    function blank() {
+      var v = {};
+      O().vibes.forEach(function (x) { v[x[0]] = 2; });
+      return {
+        homeCity: '', lengths: [], leaveDays: 1,
+        budgetComfort: 15000, budgetMax: 25000,
+        blockedWeekends: [], vibes: v, pace: 2, maxTravelHrs: 8,
+        international: 'maybe', dealbreakers: [], interests: [], notes: ''
+      };
+    }
+    function merge(a, b) {
+      for (var k in b) if (b[k] !== undefined && b[k] !== null) a[k] = b[k];
+      return a;
+    }
+
+    /* ---------- building blocks ---------- */
+    function pill(act, field, val, label, on, neg) {
+      return '<button class="pill' + (on ? ' on' : '') + (neg ? ' neg' : '') + '" data-act="' + act +
+        '" data-field="' + esc(field) + '" data-val="' + esc(val) + '">' + esc(label) + '</button>';
+    }
+    function opt(act, field, val, title, small, on) {
+      return '<button class="opt' + (on ? ' on' : '') + '" data-act="' + act + '" data-field="' + esc(field) +
+        '" data-val="' + esc(val) + '"><b>' + esc(title) + '</b>' + (small ? '<small>' + esc(small) + '</small>' : '') + '</button>';
+    }
+    function money(field, val) {
+      return '<label class="money"><span>₹</span><input type="number" inputmode="numeric" min="0" step="1000" data-bind="' +
+        field + '" value="' + (val || '') + '"></label>';
+    }
+    function tracker() {
+      var f = S.st.config.friends, m = submittedMap();
+      var done = f.filter(function (x) { return m[x]; });
+      var pending = f.filter(function (x) { return !m[x]; });
+      var pct = f.length ? Math.round(done.length / f.length * 100) : 0;
+      return '<div class="card"><div class="trk"><b>' + done.length + ' of ' + f.length + ' in</b>' +
+        '<button class="link" data-act="refresh">↻ Refresh</button></div>' +
+        '<div class="bar"><div style="width:' + pct + '%"></div></div><div class="chips">' +
+        f.map(function (x) {
+          return '<span class="chip ' + (m[x] ? 'done' : 'wait') + '">' + (m[x] ? '✓ ' : '⏳ ') + esc(x) + '</span>';
+        }).join('') + '</div>' +
+        (pending.length ? '<p class="hint">Waiting on ' + esc(pending.join(', ')) + '</p>' : '<p class="hint">Everyone is in 🎉</p>') +
+        '</div>';
+    }
+
+    /* ---------- wizard steps ---------- */
+    /* ---------- Gemini: free text → form ---------- */
+    function aiCard() {
+      var h = '<div class="card ai"><div class="ai-title">✨ Short on time? Describe your ideal trip</div>' +
+        '<p class="hint" style="margin:4px 0 10px">A sentence or two: your city, budget, dates you can’t do, what you love or won’t do. ' +
+        'AI fills in the form, then you check every screen before submitting. Your text isn’t saved.</p>' +
+        '<textarea id="aiText" maxlength="800" placeholder="e.g. I’m in Mumbai, can’t do November, max ₹20k, love beaches and food, no treks, India only">' +
+        esc(S.aiText) + '</textarea>' +
+        '<button class="btn ai-btn" data-act="aifill"' + (S.aiBusy ? ' disabled' : '') + '>' +
+        (S.aiBusy ? 'Reading your description…' : '✨ Fill the form for me') + '</button>';
+      if (S.aiErr) h += '<div class="error">' + esc(S.aiErr) + '</div>';
+      if (S.aiMsg) h += '<div class="ai-ok">' + S.aiMsg + '</div>';
+      return h + '</div>';
+    }
+
+    function aiFill() {
+      var t = String(S.aiText || '').trim();
+      if (t.length < 5) { S.aiErr = 'Write a sentence or two about your ideal trip first.'; draw(); return; }
+      S.aiBusy = true; S.aiErr = ''; S.aiMsg = ''; draw();
+      google.script.run
+        .withSuccessHandler(safe(function (r) { S.aiBusy = false; applyAiFill(r || {}); draw(); }))
+        .withFailureHandler(function (e) { S.aiBusy = false; S.aiErr = cleanMsg(e); draw(); })
+        .aiFillPreferences(S.me, S.pin, t);
+    }
+
+    function applyAiFill(r) {
+      var f = r.fields || {}, d = S.d;
+      Object.keys(f).forEach(function (k) {
+        if (k === 'vibes') Object.keys(f.vibes).forEach(function (v) { d.vibes[v] = f.vibes[v]; });
+        else d[k] = f[k];
+      });
+      if (d.budgetComfort > d.budgetMax) {
+        if ('budgetMax' in f && !('budgetComfort' in f)) d.budgetComfort = d.budgetMax;
+        else d.budgetMax = d.budgetComfort;
+      }
+      d.interests = d.interests.filter(function (x) { return d.dealbreakers.indexOf(x) === -1; });
+      S.aiFilled = r.filled || [];
+      var n = S.aiFilled.length;
+      S.aiMsg = n
+        ? '✅ Filled ' + n + ' answer' + (n === 1 ? '' : 's') + (r.summary ? ': <i>' + esc(r.summary) + '</i>' : '') +
+          '<br>Go through each screen with <b>Next</b> and change anything that’s off.'
+        : 'I couldn’t pick out any answers from that. Add details like your city, budget or dates, or just fill in the form below.';
+    }
+
+    function stepHome(d) {
+      var h = (S.st.ai ? aiCard() : '') + '<div class="label">Home city</div><div class="pills">' +
+        S.st.cities.map(function (c) { return pill('set', 'homeCity', c, c, d.homeCity === c); }).join('') +
+        '</div><p class="hint">City not listed? Pick the nearest one.</p>';
+      h += '<div class="label">Trip lengths you’re OK with <span class="muted">(pick all that work)</span></div><div class="grid">' +
+        O().lengths.map(function (l) { return opt('toggle', 'lengths', l[0], l[1], l[2], has(d.lengths, l[0])); }).join('') + '</div>';
+      h += '<div class="label">Leave days you can take</div><div class="pills">' +
+        O().leaveDays.map(function (l) { return pill('setn', 'leaveDays', l[0], l[1], d.leaveDays === l[0]); }).join('') + '</div>';
+      return h;
+    }
+
+    function budgetHint(d) {
+      if (d.budgetMax < d.budgetComfort) return '⚠️ Your max is below your comfortable budget.';
+      return 'Trips up to ' + inr(d.budgetComfort) + ' score best for you. Anything above ' + inr(d.budgetMax) + ' is ruled out.';
+    }
+    function stepBudget(d) {
+      var p1 = [10000, 15000, 20000, 30000, 45000, 60000];
+      var p2 = [15000, 20000, 30000, 45000, 60000, 80000];
+      var h = '<div class="label">Comfortable: happy to spend this</div>' + money('budgetComfort', d.budgetComfort) +
+        '<div class="pills" style="margin-top:10px">' +
+        p1.map(function (p) { return pill('setn', 'budgetComfort', p, inr(p), d.budgetComfort === p); }).join('') + '</div>';
+      h += '<div class="label">Absolute max: would stretch to this</div>' + money('budgetMax', d.budgetMax) +
+        '<div class="pills" style="margin-top:10px">' +
+        p2.map(function (p) { return pill('setn', 'budgetMax', p, inr(p), d.budgetMax === p); }).join('') + '</div>';
+      h += '<p class="hint" id="budgetHint">' + esc(budgetHint(d)) + '</p>';
+      return h;
+    }
+
+    function stepDates(d) {
+      var W = S.st.weekends;
+      if (!W.length) return '<div class="card warn">No weekends found in the trip window. Ask the organiser to check the trip dates on the admin page.</div>';
+      var free = W.filter(function (w) { return !has(d.blockedWeekends, w.key); }).length;
+      var h = '<div class="card center"><b>' + free + ' of ' + W.length + '</b> weekends work for you</div>';
+      var month = '';
+      W.forEach(function (w) {
+        if (w.month !== month) {
+          if (month) h += '</div>';
+          month = w.month;
+          h += '<div class="label">' + esc(month) + '</div><div class="weeks">';
+        }
+        var off = has(d.blockedWeekends, w.key);
+        h += '<button class="week' + (off ? ' off' : '') + '" data-act="toggle" data-field="blockedWeekends" data-val="' +
+          esc(w.key) + '">' + (off ? '✕ ' : '') + esc(w.label) + '</button>';
+      });
+      h += '</div>';
+      h += '<p class="hint">Weekends are Fri–Sun. For longer trips, we stretch around a weekend using your leave days.</p>';
+      if (d.blockedWeekends.length) h += '<p class="hint"><button class="link" data-act="clearweeks">Reset: every weekend works</button></p>';
+      return h;
+    }
+
+    function stepVibes(d) {
+      return '<div class="grid">' + O().vibes.map(function (v) {
+        var cur = d.vibes[v[0]];
+        return '<div class="card vibe"><div class="vname">' + esc(v[1]) + '</div><div class="seg">' +
+          O().vibeLevels.map(function (l, i) {
+            return '<button class="l' + i + (cur === i ? ' on' : '') + '" data-act="vibe" data-field="' + v[0] +
+              '" data-val="' + i + '">' + esc(l) + '</button>';
+          }).join('') + '</div></div>';
+      }).join('') + '</div>';
+    }
+
+    function stepStyle(d) {
+      var h = '<div class="label">Pace</div><div class="grid">' +
+        O().paces.map(function (p) { return opt('setn', 'pace', p[0], p[1], p[2], d.pace === p[0]); }).join('') + '</div>';
+      h += '<div class="label">Max one-way travel time</div><div class="pills">' +
+        O().travelHrs.map(function (t) { return pill('setn', 'maxTravelHrs', t[0], t[1], d.maxTravelHrs === t[0]); }).join('') + '</div>';
+      h += '<div class="label">International trip?</div><div class="grid">' +
+        O().international.map(function (x) { return opt('set', 'international', x[0], x[1], x[2], d.international === x[0]); }).join('') + '</div>';
+      return h;
+    }
+
+    function stepLimits(d) {
+      var h = '<div class="label">Dealbreakers <span class="muted">(rule a place out)</span></div><div class="pills">' +
+        O().dealbreakers.map(function (x) { return pill('toggle', 'dealbreakers', x[0], x[1], has(d.dealbreakers, x[0]), true); }).join('') + '</div>';
+      h += '<div class="label">Nice-to-haves <span class="muted">(bonus points)</span></div><div class="pills">' +
+        O().interests.map(function (x) { return pill('toggle', 'interests', x[0], x[1], has(d.interests, x[0])); }).join('') + '</div>';
+      h += '<p class="hint">Skip either section if nothing applies.</p>';
+      return h;
+    }
+
+    function stepReview(d) {
+      var W = S.st.weekends;
+      var free = W.filter(function (w) { return !has(d.blockedWeekends, w.key); }).length;
+      var blocked = W.filter(function (w) { return has(d.blockedWeekends, w.key); }).map(function (w) { return w.label; });
+      var byLevel = [[], [], [], []];
+      O().vibes.forEach(function (v) { byLevel[d.vibes[v[0]]].push(v[1]); });
+      var vibeText = [3, 2, 1, 0].filter(function (i) { return byLevel[i].length; })
+        .map(function (i) { return '<b>' + esc(O().vibeLevels[i]) + ':</b> ' + esc(byLevel[i].join(', ')); }).join('<br>');
+      var list = function (ids, src) { return ids.length ? esc(ids.map(function (x) { return labelOf(src, x); }).join(', ')) : '<span class="muted">None</span>'; };
+
+      var rows = [
+        ['From', esc(d.homeCity), 0],
+        ['Trip length', list(d.lengths, O().lengths) + '<br><span class="muted">Leave: ' + esc(labelOf(O().leaveDays, d.leaveDays)) + '</span>', 0],
+        ['Budget', inr(d.budgetComfort) + ' comfortable<br>' + inr(d.budgetMax) + ' max', 1],
+        ['Dates', free + ' of ' + W.length + ' weekends free' + (blocked.length ? '<br><span class="muted">Can’t do: ' + esc(blocked.join(', ')) + '</span>' : ''), 2],
+        ['Vibes', vibeText, 3],
+        ['Style', esc(labelOf(O().paces, d.pace)) + '<br>' + esc(labelOf(O().travelHrs, d.maxTravelHrs)) + ' travel<br>International: ' + esc(labelOf(O().international, d.international)), 4],
+        ['Dealbreakers', list(d.dealbreakers, O().dealbreakers), 5],
+        ['Nice-to-haves', list(d.interests, O().interests), 5]
+      ];
+      var h = S.aiFilled.length ? '<p class="hint" style="margin:0 0 12px">✨ Some answers were filled by AI from your description. Check them before submitting.</p>' : '';
+      h += '<div class="card">' + rows.map(function (r) {
+        return '<div class="rrow"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + '</div>' +
+          '<button class="link" data-act="goto" data-val="' + r[2] + '">Edit</button></div>';
+      }).join('') + '</div>';
+      h += '<div class="label">Anything else? <span class="muted">(optional)</span></div>' +
+        '<textarea data-bind="notes" maxlength="500" placeholder="e.g. I’d love somewhere with a pool, or I get motion sick on ghats">' + esc(d.notes) + '</textarea>';
+      return h;
+    }
+
+    var STEPS = [
+      { title: 'Where are you travelling from?', sub: 'This lets us work out your travel time and cost.', body: stepHome,
+        check: function (d) {
+          if (!d.homeCity) return 'Pick your home city.';
+          if (!d.lengths.length) return 'Pick at least one trip length you’re OK with.';
+        } },
+      { title: 'What’s your budget?', sub: 'Per person, all-in: travel, stay, food and activities.', body: stepBudget,
+        check: function (d) {
+          if (!(d.budgetComfort >= 3000)) return 'Enter a comfortable budget of at least ₹3,000.';
+          if (!(d.budgetMax >= d.budgetComfort)) return 'Your absolute max should be at least your comfortable budget.';
+        } },
+      { title: 'Which weekends can’t you do?', sub: 'Tap to cross out weekends that don’t work. Everything green is fine.', body: stepDates,
+        check: function (d) {
+          if (S.st.weekends.length && d.blockedWeekends.length >= S.st.weekends.length) return 'You’ve blocked every weekend. Leave at least one open.';
+        } },
+      { title: 'What kind of place?', sub: 'Rate each vibe. “Not for me” doesn’t rule a place out, it just scores it lower for you.', body: stepVibes },
+      { title: 'How do you like to travel?', sub: '', body: stepStyle },
+      { title: 'Hard no’s and nice-to-haves', sub: 'Dealbreakers remove a destination completely, so use them only for real no’s.', body: stepLimits },
+      { title: 'Check and submit', sub: 'You can come back and edit this until the options lock.', body: stepReview }
+    ];
+
+    /* ---------- views ---------- */
+    function header() {
+      return '<header class="top"><div class="brand">🧳 Trip Planner</div>' +
+        (S.me ? '<div class="me">' + (S.pin ? '🔒 ' : '') + esc(S.me) + ' · <button class="link" data-act="switch">sign out</button></div>' : '') +
+        '</header>';
+    }
+
+    function viewWho() {
+      var c = S.st.config, m = submittedMap();
+      var h = '<h1>Let’s finally plan this trip.</h1><p class="sub">' +
+        (c.organizer ? esc(c.organizer) + ' is coordinating. ' : '') +
+        'It takes about 2 minutes. Everyone fills this in once, then the tool finds the options that work for the whole group.</p>';
+      if (c.locked) h += '<div class="card warn">🔒 Preferences are locked. The deadline has passed.</div>';
+      h += statusBanner();
+      h += tracker();
+      if (S.st.submitted.length) h += '<button class="btn cta" data-act="options">' + esc(ctaLabel()) + '</button>';
+      h += '<div class="label">Who are you?</div><div class="grid">' + c.friends.map(function (f) {
+        return opt('pick', '', f, f, m[f] ? '✓ Submitted. Tap to view or edit' : 'Not submitted yet', !!m[f]);
+      }).join('') + '</div>';
+      return h;
+    }
+
+    function viewWizard() {
+      var st = STEPS[S.step], n = STEPS.length, last = S.step === n - 1;
+      var h = '<div class="progress"><div style="width:' + Math.round((S.step + 1) / n * 100) + '%"></div></div>' +
+        '<p class="stepno">Step ' + (S.step + 1) + ' of ' + n + '</p>' +
+        '<h1>' + esc(st.title) + '</h1>' + (st.sub ? '<p class="sub">' + esc(st.sub) + '</p>' : '') +
+        st.body(S.d);
+      if (S.err) h += '<div class="error">' + esc(S.err) + '</div>';
+      h += '<div class="nav"><div class="in">' +
+        '<button class="btn" data-act="back">' + (S.step === 0 ? 'Cancel' : 'Back') + '</button>' +
+        (last
+          ? '<button class="btn primary" data-act="submit"' + (S.saving ? ' disabled' : '') + '>' + (S.saving ? 'Saving…' : 'Submit my answers') + '</button>'
+          : '<button class="btn primary" data-act="next">Next</button>') +
+        '</div></div>';
+      return h;
+    }
+
+    function viewDone() {
+      var c = S.st.config, m = submittedMap();
+      var all = c.friends.every(function (f) { return m[f]; });
+      var h = '<div class="card hero"><div class="big">✅</div><h1>You’re in, ' + esc(S.me) + '!</h1>' +
+        '<p class="muted" style="margin:0">Answers saved' + (m[S.me] ? ' · ' + esc(fmtWhen(m[S.me])) : '') + '</p>' +
+        (c.locked
+          ? '<p class="muted">🔒 Preferences are locked.</p>'
+          : '<button class="btn inline" data-act="edit">Edit my answers</button>') +
+        '</div>';
+      h = statusBanner() + h;
+      h += tracker();
+      h += '<button class="btn cta" data-act="options">' + esc(ctaLabel()) + '</button>';
+      var v = S.st.voting;
+      h += '<div class="card"><div class="label" style="margin-top:0">What happens next</div><p style="margin:0">' +
+        (v.decision
+          ? 'The trip is decided! 🎉 Time to book.'
+          : v.shortlist
+            ? 'Voting is open. Mark each option ✅ / 🤔 / ❌. The first one everyone is ✅ on wins.'
+            : all
+              ? 'Everyone’s in! 🎉 ' + esc(S.st.config.organizer || 'The organiser') + ' will open voting on the top options.'
+              : 'You can preview the options now, but they may change until everyone has submitted.') +
+        '</p></div>';
+      h += nudgeCard();
+      return h;
+    }
+
+    /* ---------- voting helpers ---------- */
+    function isOrganizer() {
+      var o = S.st.config.organizer;
+      return !!S.me && !!S.pin && (!o || S.me === o);
+    }
+    function decidedOption() {
+      var v = S.st.voting;
+      if (!v.decision || !v.shortlist) return null;
+      for (var i = 0; i < v.shortlist.length; i++) if (v.shortlist[i].key === v.decision) return v.shortlist[i];
+      return null;
+    }
+    function shortDate(s) { return String(s || '').replace(/ \d{4}$/, ''); }
+    function costText(o) { return o.costMin === o.costMax ? inr(o.costMin) : inr(o.costMin) + '–' + inr(o.costMax).replace('₹', ''); }
+    function ctaLabel() {
+      var v = S.st.voting, m = submittedMap();
+      if (v.decision) return '🎉 See the decided trip →';
+      if (v.shortlist) return '🗳 Vote on the trip →';
+      return S.st.config.friends.every(function (f) { return m[f]; }) ? 'See our trip options →' : 'Preview trip options →';
+    }
+    function statusBanner() {
+      var o = decidedOption();
+      if (o) return '<button class="banner" data-act="options">🎉 Decided: ' + esc(o.destination) + ' · ' + esc(shortDate(o.dateLabel)) + ' →</button>';
+      if (S.st.voting.shortlist) return '<button class="banner" data-act="options">🗳 Voting is open: tap to vote →</button>';
+      return '';
+    }
+    function notVotedYet() {
+      var v = S.st.voting;
+      if (!v.shortlist) return [];
+      return S.st.config.friends.filter(function (f) {
+        return v.shortlist.some(function (o) { return !(v.votes[o.key] || {})[f]; });
+      });
+    }
+
+    function nudgeText() {
+      var st = S.st, v = st.voting, url = st.appUrl || '(link)', f = st.config.friends, m = submittedMap();
+      var o = decidedOption();
+      if (o) {
+        return '🎉 IT’S DECIDED! ' + o.destination + ', ' + shortDate(o.dateLabel) + ' · ' + o.lengthLabel + '.\n' +
+          'Approx ' + costText(o) + ' per person, all-in.' + (o.leaveNeeded ? ' Apply for ' + o.leaveNeeded + ' days of leave!' : '') +
+          '\nDetails: ' + url;
+      }
+      if (v.shortlist) {
+        var wait = notVotedYet();
+        return '🗳 Trip vote is open! Our top options: ' + v.shortlist.map(function (x) { return x.destination; }).join(' / ') + '.\n' +
+          'Tap ✅ / 🤔 / ❌ for each (takes 1 min). The first one everyone is ✅ on wins.\n' + url +
+          (wait.length ? '\nStill waiting on: ' + wait.join(', ') : '');
+      }
+      var pending = f.filter(function (x) { return !m[x]; });
+      if (pending.length) {
+        return '🧳 Trip planning update: ' + (f.length - pending.length) + ' of ' + f.length + ' have filled in their preferences.\n' +
+          'Still waiting on ' + pending.join(', ') + '. It takes 2 minutes, no more WhatsApp debates!\n' + url;
+      }
+      return '✅ Everyone has filled in their preferences! See our top trip options here:\n' + url;
+    }
+
+    function nudgeCard() {
+      var t = nudgeText();
+      return '<div class="card nudge"><div class="label" style="margin-top:0">📣 Nudge the group</div>' +
+        '<textarea id="nudge" readonly>' + esc(t) + '</textarea>' +
+        '<div class="nudge-btns">' +
+        '<a class="btn wa" href="https://wa.me/?text=' + encodeURIComponent(t) + '" target="_blank" rel="noopener">Open in WhatsApp</a>' +
+        '<button class="btn" data-act="copy">' + (S.copied ? 'Copied ✓' : 'Copy text') + '</button>' +
+        '</div></div>';
+    }
+
+    function copyNudge() {
+      var ta = document.getElementById('nudge');
+      if (!ta) return;
+      var view = S.view;
+      var done = function () {
+        S.copied = true; draw();
+        setTimeout(function () { S.copied = false; if (S.view === view) draw(); }, 2000);
+      };
+      var fallback = function () {
+        ta.removeAttribute('readonly'); ta.focus(); ta.select();
+        try { document.execCommand('copy'); done(); }
+        catch (e) { S.resErr = 'Could not copy automatically. Select the text and copy it.'; draw(); }
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fallback);
+        else fallback();
+      } catch (e) { fallback(); }
+    }
+
+    function twoTap(id) {
+      if (S.confirm === id) { S.confirm = ''; return true; }
+      S.confirm = id; draw();
+      setTimeout(function () { if (S.confirm === id) { S.confirm = ''; draw(); } }, 4000);
+      return false;
+    }
+
+    function serverCall(fnName, args) {
+      S.busy = true; S.resErr = ''; draw();
+      var runner = google.script.run
+        .withSuccessHandler(safe(function (st) {
+          checkState(st);
+          S.busy = false; S.st = st; draw();
+        }))
+        .withFailureHandler(function (e) {
+          S.busy = false; S.resErr = (e && e.message ? e.message : String(e)); draw();
+          refresh(); // undo any optimistic change by reloading the real state
+        });
+      runner[fnName].apply(runner, args);
+    }
+
+    function voteBlock(o) {
+      var v = S.st.voting, f = S.st.config.friends, votes = v.votes[o.key] || {};
+      var mine = S.me ? votes[S.me] : null;
+      var ins = f.filter(function (x) { return votes[x] === 'in'; });
+      var cants = f.filter(function (x) { return votes[x] === 'cant'; });
+      var h = '<div class="vote"><div class="vlabel">' + (S.me && S.pin && !v.decision ? 'Your answer, ' + esc(S.me) : 'Answers') + '</div>';
+      if (S.me && S.pin && !v.decision) {
+        h += '<div class="seg three">' + [['in', '✅ I’m in'], ['maybe', '🤔 Maybe'], ['cant', '❌ Can’t']].map(function (x) {
+          return '<button class="' + (mine === x[0] ? 'on v-' + x[0] : '') + '" data-act="vote" data-field="' + esc(o.key) +
+            '" data-val="' + x[0] + '"' + (S.busy ? ' disabled' : '') + '>' + x[1] + '</button>';
+        }).join('') + '</div>';
+      }
+      h += '<div class="chips">' + f.map(function (x) {
+        var a = votes[x];
+        var cls = a === 'in' ? 'done' : a === 'cant' ? 'no' : a === 'maybe' ? 'maybe' : 'wait';
+        var ic = a === 'in' ? '✅ ' : a === 'cant' ? '❌ ' : a === 'maybe' ? '🤔 ' : '⏳ ';
+        return '<span class="chip ' + cls + '">' + ic + esc(x) + '</span>';
+      }).join('') + '</div>';
+      var status;
+      if (v.decision === o.key) status = '🎉 Everyone’s in. This is the trip!';
+      else if (cants.length) status = '❌ Out: ' + cants.join(', ') + ' can’t make it';
+      else status = ins.length + ' of ' + f.length + ' are in';
+      h += '<p class="vstatus">' + esc(status) + '</p></div>';
+      return h;
+    }
+
+    function viewVoting() {
+      var v = S.st.voting, f = S.st.config.friends, h = '';
+      var o = decidedOption();
+      if (S.resErr) h += '<div class="error" style="margin:0 0 14px">' + esc(S.resErr) + '</div>';
+
+      if (o) {
+        h += '<div class="card decided"><div class="big">🎉</div><h1 style="margin-top:8px">It’s decided!</h1>' +
+          '<div class="dest">' + esc(o.destination) + '</div>' +
+          '<p style="margin:6px 0 0"><b>' + esc(shortDate(o.dateLabel)) + '</b> · ' + esc(o.lengthLabel) + '<br>' +
+          esc(costText(o)) + ' per person · ' + (o.leaveNeeded ? o.leaveNeeded + ' leave days each' : 'no leave needed') + '</p>' +
+          '<p class="muted" style="margin:10px 0 0">All ' + f.length + ' said ✅ · locked ' + esc(fmtWhen(v.decidedAt)) + '</p></div>';
+        h += nudgeCard();
+        h += '<div class="label">Trip details</div>' + optionCard(o, false, voteBlock(o));
+        if (isOrganizer()) {
+          h += '<div class="card organiser"><b>Organiser</b><p class="hint">Someone’s plans changed? Reopen voting so people can update their answers.</p>' +
+            '<button class="btn inline" data-act="reopen"' + (S.busy ? ' disabled' : '') + '>' + (S.confirm === 'reopen' ? 'Tap again to reopen' : 'Reopen voting') + '</button></div>';
+        }
+        return h;
+      }
+
+      h += '<h1>Vote: which trip are you in for?</h1>' +
+        '<p class="sub">For each option, tap ✅ if you’d definitely go. The first option everyone is ✅ on wins and gets locked. You can change your answer until then.</p>';
+      if (!S.me || !S.pin) h += '<div class="card warn">Pick your name and enter your PIN to vote. <button class="link" data-act="closeoptions">Choose name</button></div>';
+
+      var wait = notVotedYet();
+      if (!wait.length) {
+        // Everyone answered everything, still no winner: say what's closest.
+        var best = v.shortlist.slice().sort(function (a, b) {
+          var ca = f.filter(function (x) { return (v.votes[a.key] || {})[x] === 'in'; }).length;
+          var cb = f.filter(function (x) { return (v.votes[b.key] || {})[x] === 'in'; }).length;
+          return cb - ca;
+        })[0];
+        var maybes = f.filter(function (x) { return (v.votes[best.key] || {})[x] === 'maybe'; });
+        h += '<div class="card warn"><b>No option has everyone ✅ yet.</b><br>Closest: <b>' + esc(best.destination) + '</b>.' +
+          (maybes.length ? ' ' + esc(maybes.join(', ')) + (maybes.length === 1 ? ' is' : ' are') + ' on 🤔. Can you make it work?' : '') + '</div>';
+      } else {
+        h += '<p class="hint" style="margin:0 0 14px">⏳ Waiting on: ' + esc(wait.join(', ')) + '</p>';
+      }
+
+      h += v.shortlist.map(function (x) { return optionCard(x, false, voteBlock(x)); }).join('');
+      h += nudgeCard();
+      if (isOrganizer()) {
+        h += '<div class="card organiser"><b>Organiser</b><p class="hint">Start over clears the shortlist and all votes, so you can open voting again on fresh results.</p>' +
+          '<button class="btn inline" data-act="resetvote"' + (S.busy ? ' disabled' : '') + '>' + (S.confirm === 'resetvote' ? 'Tap again to clear votes' : 'Start over') + '</button></div>';
+      }
+      return h;
+    }
+
+    /* ---------- options screen ---------- */
+    function band(score) { return score >= 75 ? 'good' : (score >= 55 ? 'ok' : 'low'); }
+
+    function personRow(p) {
+      var blocked = p.blockers.length > 0;
+      var why;
+      if (blocked) {
+        why = '<span class="blk">❌ ' + esc(p.blockers.join(' · ')) + '</span>';
+      } else {
+        var bits = [inr(p.cost)];
+        if (p.travelHrs != null) bits.push(p.travelHrs + 'h each way');
+        why = esc(bits.join(' · '));
+        if (p.pros.length) why += ' · ' + esc(p.pros.filter(function (x) { return x.toLowerCase().indexOf('fits budget') === -1 && x.indexOf('away') === -1; }).slice(0, 2).join(', '));
+        if (p.cons.length) why += '<br><span class="neg">⚠ ' + esc(p.cons.slice(0, 2).join(' · ')) + '</span>';
+      }
+      return '<div class="person"><div class="prow"><div class="pname">' + esc(p.name) + '</div>' +
+        '<div class="pbar"><div class="' + (blocked ? 'low' : band(p.score)) + '" style="width:' + (blocked ? 4 : Math.max(4, p.score)) + '%"></div></div>' +
+        '<div class="pscore">' + (blocked ? '—' : p.score) + '</div></div>' +
+        '<div class="pwhy">' + why.replace(/ · $/, '') + '</div></div>';
+    }
+
+    function optionSummary(o) {
+      var ok = o.people.filter(function (p) { return !p.blockers.length; });
+      var stretch = ok.filter(function (p) { return p.cons.some(function (c) { return c.indexOf('Stretch') === 0; }); })
+        .map(function (p) { return p.name; });
+      var sorted = ok.slice().sort(function (a, b) { return a.score - b.score; });
+      var parts = [];
+      if (o.fitsEveryone) parts.push('✅ Everyone can make it');
+      else parts.push('❌ ' + o.blockedCount + ' can’t make it');
+      parts.push(stretch.length ? '💸 ' + stretch.join(', ') + ' would stretch their budget' : '💰 Within everyone’s comfortable budget');
+      if (sorted.length) parts.push('🙂 Least keen: ' + sorted[0].name + ' (' + sorted[0].score + ')');
+      return parts.join('<br>');
+    }
+
+    function optionCard(o, isNear, extra) {
+      var h = '<div class="card ocard' + (!isNear && o.rank === 1 ? ' first' : '') + '">';
+      h += '<span class="rank' + (isNear ? ' alt' : '') + '">' + (isNear ? 'Almost' : (o.rank === 1 ? '#1 Best for the group' : '#' + o.rank)) + '</span>';
+      h += '<div class="dest">' + esc(o.destination) + '</div>';
+      h += '<div class="meta">' + esc(o.region) + ' · ' + esc(o.vibes.join(', ')) + '</div>';
+      h += '<div class="facts">' +
+        '<div class="fact"><b>' + esc(o.dateLabel.replace(/ \d{4}$/, '')) + '</b><span>' + esc(o.lengthLabel) + '</span></div>' +
+        '<div class="fact"><b>' + (o.costMin === o.costMax ? inr(o.costMin) : inr(o.costMin) + '–' + inr(o.costMax).replace('₹', '')) + '</b><span>per person, all-in</span></div>' +
+        '<div class="fact"><b>' + (isNear ? '—' : o.groupScore) + '</b><span>' + (fitMode() === 'average' ? 'average fit' : 'least-happy fit') + '</span></div>' +
+        '</div>';
+      h += '<p class="summary">' + optionSummary(o) + (o.leaveNeeded ? '<br>🗓 ' + o.leaveNeeded + ' leave days each' : '<br>🗓 No leave needed') + '</p>';
+      var ai = o.ai || (S.aiByKey && S.aiByKey[o.key]);
+      if (ai) {
+        h += '<div class="ai-sum"><div class="ai-label">✨ AI summary · the scores decide the ranking</div>' +
+          '<p>' + esc(ai.why) + '</p>' + (ai.tradeoff ? '<p class="neg">⚖️ ' + esc(ai.tradeoff) + '</p>' : '') + '</div>';
+      } else if (!isNear && S.st.ai && S.aiLoading) {
+        h += '<div class="ai-sum"><div class="ai-label">✨ Writing a plain-language summary…</div></div>';
+      }
+      if (extra) h += extra;
+      h += o.people.map(personRow).join('');
+      if (o.altDates && o.altDates.length) {
+        h += '<div class="also">📅 Also works: ' + esc(o.altDates.map(function (d) { return d.replace(/ \d{4}$/, ''); }).join(' · ')) + '</div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    function fitMode() {
+      var v = S.st.voting;
+      if (v && v.shortlist && v.mode) return v.mode;
+      return S.res ? S.res.rankingMode : 'weakest';
+    }
+
+    function viewOptions() {
+      var h = '<p style="margin:0 0 12px"><button class="link" data-act="closeoptions">← Back</button></p>';
+      if (S.st.voting && S.st.voting.shortlist) return h + viewVoting();
+      h += '<h1>Your best trip options</h1>';
+      if (S.resLoading && !S.res) return h + '<p class="muted">Crunching everyone’s answers…</p>';
+      if (S.resErr) return h + '<div class="error">' + esc(S.resErr) + '</div>';
+      var r = S.res;
+      if (!r || !r.submittedCount) return h + '<div class="card warn">Nobody has submitted yet.</div>';
+
+      h += '<p class="sub">Ranked from ' + r.candidatesChecked + ' possible trips, using ' + r.submittedCount + ' of ' + r.totalFriends + ' people’s answers.</p>';
+      if (r.missing.length) {
+        h += '<div class="card warn">⏳ <b>Preview.</b> Still waiting on ' + esc(r.missing.join(', ')) + ', so these may change.</div>';
+      }
+      if (r.sampleNames && r.sampleNames.length) {
+        h += '<div class="card warn">🧪 Includes <b>sample answers</b> for ' + esc(r.sampleNames.join(', ')) +
+          '. Remove them on the admin page before sharing.</div>';
+      }
+
+      h += '<div class="seg two">' +
+        '<button class="' + (r.rankingMode === 'weakest' ? 'on' : '') + '" data-act="mode" data-val="weakest">⚖️ Fairest</button>' +
+        '<button class="' + (r.rankingMode === 'average' ? 'on' : '') + '" data-act="mode" data-val="average">📊 Best average</button>' +
+        '</div>';
+      h += '<p class="legend">' + (r.rankingMode === 'weakest'
+        ? 'Fairest: ranked by how happy the <b>least-happy</b> person is, so nobody gets dragged along.'
+        : 'Best average: ranked by the group’s <b>average</b> happiness.') +
+        (S.resLoading ? ' <i>Updating…</i>' : '') + '</p>';
+
+      if (!r.top.length) {
+        h += '<div class="card warn"><b>No trip fits everyone yet.</b><br>The options below are blocked for just one person. The ❌ shows what would need to change.</div>';
+      }
+      h += r.top.map(function (o) { return optionCard(o, false); }).join('');
+
+      if (r.top.length) h += freezeCard(r);
+
+      if (r.nearMisses.length) {
+        h += '<div class="label">Almost: blocked for one person</div>';
+        h += r.nearMisses.map(function (o) { return optionCard(o, true); }).join('');
+      }
+      h += nudgeCard();
+      h += '<p class="hint">Scores are 0–100 per person, based on vibe, budget, pace, travel time and interests. Costs are rough estimates.</p>';
+      return h;
+    }
+
+    function freezeCard(r) {
+      var org = S.st.config.organizer || 'The organiser';
+      if (!isOrganizer()) {
+        return '<div class="card"><b>🗳 Next: voting</b><p class="hint" style="margin-top:6px">' + esc(org) +
+          ' will lock these options and open voting. Then everyone marks ✅ / 🤔 / ❌.</p></div>';
+      }
+      return '<div class="card organiser"><b>🗳 Ready to decide?</b>' +
+        '<p class="hint" style="margin-top:6px">This locks these ' + r.top.length + ' options (so they stop changing) and opens voting for everyone.' +
+        (r.missing.length ? '<br>⚠ ' + esc(r.missing.join(', ')) + ' haven’t submitted yet.' : '') + '</p>' +
+        '<button class="btn cta" style="margin:12px 0 0" data-act="freeze"' + (S.busy ? ' disabled' : '') + '>' +
+        (S.busy ? 'Opening…' : S.confirm === 'freeze' ? 'Tap again to confirm' : 'Open voting on these ' + r.top.length) + '</button>' +
+        (S.resErr ? '<div class="error">' + esc(S.resErr) + '</div>' : '') + '</div>';
+    }
+
+    function loadAiExplain() {
+      if (S.aiLoading) return;
+      S.aiLoading = true;
+      google.script.run
+        .withSuccessHandler(function (x) {
+          S.aiLoading = false;
+          if (x && x.byKey) Object.keys(x.byKey).forEach(function (k) { S.aiByKey[k] = x.byKey[k]; });
+          if (S.view === 'options') draw();
+        })
+        .withFailureHandler(function () { S.aiLoading = false; if (S.view === 'options') draw(); })
+        .aiExplainResults(S.mode);
+    }
+
+    function openOptions() {
+      if (S.view !== 'options') S.prevView = S.view;
+      S.view = 'options'; S.resErr = ''; S.confirm = '';
+      if (!S.mode) S.mode = S.st.config.rankingMode === 'average' ? 'average' : 'weakest';
+      if (!(S.st.voting && S.st.voting.shortlist)) loadResults();
+      draw(); goTop();
+    }
+
+    function loadResults() {
+      S.resLoading = true;
+      google.script.run
+        .withSuccessHandler(safe(function (r) {
+          S.resLoading = false;
+          if (!r) throw new Error('No results returned. Please reload the page.');
+          S.res = r;
+          if (S.st.ai && r.top && r.top.some(function (o) { return !S.aiByKey[o.key]; })) loadAiExplain();
+          draw();
+        }))
+        .withFailureHandler(function (e) {
+          S.resLoading = false; S.resErr = 'Could not load options: ' + (e && e.message ? e.message : e); draw();
+        })
+        .getResults(S.mode);
+    }
+
+    function viewLoading() {
+      var h = '<p class="muted center" style="margin-top:48px">Loading…</p>';
+      if (S.slow) {
+        h += '<div class="card warn"><b>This is taking longer than usual.</b>' +
+          '<p class="hint" style="color:inherit">Try these:<br>' +
+          '1. Check your internet connection.<br>' +
+          '2. Reload the page.<br>' +
+          '3. If it still hangs, the organiser should check the database connection on Vercel.</p></div>';
+      }
+      return h;
+    }
+
+    function draw() {
+      var h;
+      if (S.view === 'loading') h = viewLoading();
+      else if (S.view === 'fatal') h = header() + '<div class="card"><p class="error" style="margin:0">' + esc(S.err) + '</p></div>';
+      else {
+        h = header();
+        if (S.view === 'who') h += viewWho();
+        else if (S.view === 'wizard') h += viewWizard();
+        else if (S.view === 'done') h += viewDone();
+        else if (S.view === 'options') h += viewOptions();
+        else if (S.view === 'pin') h += viewPin();
+        else if (S.view === 'newpin') h += viewNewPin();
+      }
+      document.getElementById('app').innerHTML = h;
+      if (S.view === 'pin' || S.view === 'newpin') {
+        var first = document.getElementById('pin1');
+        if (first) { try { first.focus(); } catch (e) {} }
+      }
+    }
+
+    /* ---------- actions ---------- */
+    function fatal(e) { S.view = 'fatal'; S.err = (e && e.message ? e.message : String(e)); draw(); }
+
+    function load() {
+      google.script.run
+        .withSuccessHandler(safe(function (st) {
+          checkState(st);
+          S.st = st;
+          var saved = store('tp_me');
+          if (saved && has(st.config.friends, saved)) pick(saved);
+          else { S.view = 'who'; draw(); }
+        }))
+        .withFailureHandler(fatal)
+        .getState();
+    }
+
+    function refresh() {
+      google.script.run
+        .withSuccessHandler(safe(function (st) { checkState(st); S.st = st; draw(); }))
+        .withFailureHandler(fatal)
+        .getState();
+    }
+
+    function pick(name) {
+      S.me = name; store('tp_me', name);
+      S.err = ''; S.pinErr = ''; S.pin = null;
+      if (!has(S.st.pinSet || [], name)) { S.view = 'newpin'; draw(); goTop(); return; }
+      var saved = store('tp_pin_' + name);
+      if (saved) { unlock(saved, true); return; }
+      S.view = 'pin'; draw(); goTop();
+    }
+
+    function cleanMsg(e) {
+      return (e && e.message ? e.message : String(e)).replace(/^(Exception|Error):\s*/, '');
+    }
+
+    function unlock(pin, fromSaved) {
+      S.view = 'loading'; draw();
+      google.script.run
+        .withSuccessHandler(safe(function (res) {
+          S.pin = pin; S.pinErr = '';
+          S.aiText = ''; S.aiMsg = ''; S.aiErr = ''; S.aiFilled = [];
+          store('tp_pin_' + S.me, S.remember ? pin : null);
+          S.has = !!res;
+          S.d = merge(blank(), res || {});
+          S.step = 0;
+          if (res) S.view = 'done';
+          else if (S.st.config.locked) S.view = 'who';
+          else S.view = 'wizard';
+          draw(); goTop();
+        }))
+        .withFailureHandler(function (e) {
+          var msg = cleanMsg(e);
+          store('tp_pin_' + S.me, null); S.pin = null;
+          if (msg.indexOf('NO_PIN') > -1) { S.view = 'newpin'; S.pinErr = ''; }
+          else { S.view = 'pin'; S.pinErr = fromSaved ? 'Please enter your PIN.' : msg; }
+          draw();
+        })
+        .getMyResponse(S.me, pin);
+    }
+
+    function val(id) { var el = document.getElementById(id); return el ? String(el.value).trim() : ''; }
+    function readRemember() { var el = document.getElementById('remember'); S.remember = el ? el.checked : true; }
+
+    function unlockFromInput() {
+      readRemember();
+      var p = val('pin1');
+      if (!/^\d{4}$/.test(p)) { S.pinErr = 'Enter your 4-digit PIN.'; draw(); return; }
+      unlock(p, false);
+    }
+
+    function createPin() {
+      readRemember();
+      var a = val('pin1'), b = val('pin2');
+      if (!/^\d{4}$/.test(a)) { S.pinErr = 'PIN must be exactly 4 digits.'; draw(); return; }
+      if (a !== b) { S.pinErr = 'The two PINs don’t match. Try again.'; draw(); return; }
+      S.busy = true; S.pinErr = ''; draw();
+      google.script.run
+        .withSuccessHandler(safe(function (st) {
+          checkState(st); S.st = st; S.busy = false; unlock(a, false);
+        }))
+        .withFailureHandler(function (e) { S.busy = false; S.pinErr = cleanMsg(e); draw(); })
+        .setPin(S.me, a);
+    }
+
+    function pinInput(id, label) {
+      return '<div class="label">' + label + '</div>' +
+        '<input id="' + id + '" class="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off">';
+    }
+
+    function rememberBox() {
+      return '<label class="check"><input type="checkbox" id="remember"' + (S.remember ? ' checked' : '') + '> Remember me on this device</label>';
+    }
+
+    function viewNewPin() {
+      var h = '<h1>Hi ' + esc(S.me) + '! Create a PIN</h1>' +
+        '<p class="sub">Pick any 4 digits. You’ll need it to see or change your answers and to vote, so nobody else can do it as you.</p>';
+      h += '<div class="card">' + pinInput('pin1', 'New PIN') + pinInput('pin2', 'Type it again') + rememberBox() + '</div>';
+      if (S.pinErr) h += '<div class="error" style="margin:0 0 14px">' + esc(S.pinErr) + '</div>';
+      h += '<button class="btn cta" data-act="createpin"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? 'Saving…' : 'Save PIN and continue') + '</button>';
+      h += '<p class="hint center">Not ' + esc(S.me) + '? <button class="link" data-act="switch">Pick another name</button></p>';
+      return h;
+    }
+
+    function viewPin() {
+      var org = S.st.config.organizer || 'the organiser';
+      var h = '<h1>Enter your PIN, ' + esc(S.me) + '</h1>' +
+        '<p class="sub">This keeps your answers and votes private to you.</p>';
+      h += '<div class="card">' + pinInput('pin1', 'Your 4-digit PIN') + rememberBox() + '</div>';
+      if (S.pinErr) h += '<div class="error" style="margin:0 0 14px">' + esc(S.pinErr) + '</div>';
+      h += '<button class="btn cta" data-act="unlock">Unlock</button>';
+      h += '<p class="hint center">Forgot it? Ask ' + esc(org) + ' to reset it on the admin page.<br>' +
+        'Not ' + esc(S.me) + '? <button class="link" data-act="switch">Pick another name</button></p>';
+      return h;
+    }
+
+    function next() {
+      var st = STEPS[S.step];
+      var e = st.check && st.check(S.d);
+      if (e) { S.err = e; draw(); return; }
+      S.err = ''; S.step++; draw(); goTop();
+    }
+
+    function back() {
+      S.err = '';
+      if (S.step > 0) { S.step--; draw(); goTop(); return; }
+      if (S.has) { S.view = 'done'; }
+      else { S.me = null; S.d = null; store('tp_me', null); S.view = 'who'; }
+      draw(); goTop();
+    }
+
+    function submit() {
+      for (var i = 0; i < STEPS.length; i++) {
+        var e = STEPS[i].check && STEPS[i].check(S.d);
+        if (e) { S.step = i; S.err = e; draw(); goTop(); return; }
+      }
+      S.saving = true; S.err = ''; draw();
+      google.script.run
+        .withSuccessHandler(safe(function (st) {
+          checkState(st);
+          S.st = st; S.saving = false; S.has = true; S.view = 'done'; draw(); goTop();
+        }))
+        .withFailureHandler(function (e) {
+          S.saving = false; S.err = 'Could not save: ' + (e && e.message ? e.message : e); draw();
+        })
+        .submitPreferences(S.me, S.pin, S.d);
+    }
+
+    function toggle(f, v) {
+      var list = S.d[f], i = list.indexOf(v);
+      if (i > -1) { list.splice(i, 1); return; }
+      list.push(v);
+      var other = f === 'dealbreakers' ? 'interests' : (f === 'interests' ? 'dealbreakers' : null);
+      if (other) { var j = S.d[other].indexOf(v); if (j > -1) S.d[other].splice(j, 1); }
+    }
+
+    document.addEventListener('click', function (e) {
+      var el = e.target.closest('[data-act]');
+      if (!el) return;
+      var a = el.getAttribute('data-act'), f = el.getAttribute('data-field'), v = el.getAttribute('data-val');
+
+      if (a === 'pick') return pick(v);
+      if (a === 'switch') { if (S.me) store('tp_pin_' + S.me, null); S.pin = null; S.pinErr = ''; store('tp_me', null); S.me = null; S.d = null; S.has = false; S.view = S.st ? 'who' : 'loading'; S.err = ''; if (!S.st) load(); draw(); return goTop(); }
+      if (a === 'edit') { S.view = 'wizard'; S.step = 0; S.err = ''; draw(); return goTop(); }
+      if (a === 'next') return next();
+      if (a === 'back') return back();
+      if (a === 'submit') return submit();
+      if (a === 'goto') { S.step = Number(v); S.err = ''; draw(); return goTop(); }
+      if (a === 'refresh') return refresh();
+      if (a === 'options') return openOptions();
+      if (a === 'mode') { if (v !== S.mode) { S.mode = v; loadResults(); draw(); } return; }
+      if (a === 'copy') return copyNudge();
+      if (a === 'aifill') { if (!S.busy && !S.aiBusy) aiFill(); return; }
+      if (a === 'unlock') return unlockFromInput();
+      if (a === 'createpin') { if (!S.busy) createPin(); return; }
+      if (a === 'freeze') { if (twoTap('freeze')) serverCall('freezeShortlist', [S.me, S.pin, S.mode]); return; }
+      if (a === 'reopen') { if (twoTap('reopen')) serverCall('reopenVoting', [S.me, S.pin]); return; }
+      if (a === 'resetvote') {
+        if (twoTap('resetvote')) { S.res = null; serverCall('resetVoting', [S.me, S.pin]); loadResults(); }
+        return;
+      }
+      if (a === 'vote') {
+        if (S.busy || !S.me || !S.pin) return;
+        var vv = S.st.voting;
+        (vv.votes[f] = vv.votes[f] || {})[S.me] = v; // show it instantly; server confirms
+        serverCall('castVote', [S.me, S.pin, f, v]);
+        return;
+      }
+      if (a === 'closeoptions') {
+        S.view = (S.prevView === 'done' && S.me && S.has) ? 'done' : 'who';
+        draw(); return goTop();
+      }
+      if (!S.d) return;
+
+      if (a === 'set') S.d[f] = v;
+      else if (a === 'setn') S.d[f] = Number(v);
+      else if (a === 'vibe') S.d.vibes[f] = Number(v);
+      else if (a === 'toggle') toggle(f, v);
+      else if (a === 'clearweeks') S.d.blockedWeekends = [];
+      S.err = '';
+      draw();
+    });
+
+    document.addEventListener('input', function (e) {
+      if (e.target.id === 'aiText') { S.aiText = e.target.value; return; }
+      var f = e.target.getAttribute('data-bind');
+      if (!f || !S.d) return;
+      S.d[f] = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+      if (f === 'budgetComfort' || f === 'budgetMax') {
+        var h = document.getElementById('budgetHint');
+        if (h) h.textContent = budgetHint(S.d);
+        var pills = document.querySelectorAll('.pill[data-field="' + f + '"]');
+        for (var i = 0; i < pills.length; i++) {
+          pills[i].classList.toggle('on', Number(pills[i].getAttribute('data-val')) === S.d[f]);
+        }
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || !e.target.classList || !e.target.classList.contains('pin')) return;
+      e.preventDefault();
+      if (S.view === 'pin') unlockFromInput();
+      else if (S.view === 'newpin') {
+        if (e.target.id === 'pin1') { var p2 = document.getElementById('pin2'); if (p2) p2.focus(); }
+        else if (!S.busy) createPin();
+      }
+    });
+
+    // Keep the tracker fresh while people are waiting
+    setInterval(function () {
+      if (!S.st || document.hidden || S.busy) return;
+      var voting = S.st.voting && S.st.voting.shortlist;
+      if (S.view === 'done' || S.view === 'who' || (S.view === 'options' && voting)) refresh();
+    }, 30000);
+
+    load();
+  })();
+  </script>
+</body>
+</html>
