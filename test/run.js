@@ -33,5 +33,22 @@ const ctx = { appUrl: 'http://localhost/' };
   assert.ok(reset.state.pinSet.indexOf(organizer) > -1, 'PIN should be KEPT after reset');
   console.log('adminResetAll OK: responses cleared, voting cleared, PIN kept');
 
+  // Diagnosis: a group with no shared trip length should explain why, not just show an empty table
+  const prefs = (lengths) => ({
+    homeCity: 'Bangalore', lengths: lengths, leaveDays: 2, budgetComfort: 15000, budgetMax: 25000,
+    blockedWeekends: [], vibes: { beach: 2, mountains: 2, city: 2, heritage: 2, nature: 2 }, pace: 2,
+    maxTravelHrs: 8, international: 'maybe', dealbreakers: [], interests: [], notes: ''
+  });
+  const split = [['Riya', ['short']], ['Siddharth', ['medium']], ['Karan', ['short']], ['Aisha', ['medium']], ['Preethi', ['short']]];
+  for (const [name, lengths] of split) {
+    await core.setPin(ctx, name, '1234').catch(() => {}); // organizer already has one from freezeShortlist above
+    await core.submitPreferences(ctx, name, '1234', prefs(lengths));
+  }
+  const noFit = await core.getResults(ctx, 'weakest');
+  assert.strictEqual(noFit.top.length, 0, 'nothing should fit when lengths never overlap');
+  assert.strictEqual(noFit.diagnosis && noFit.diagnosis.reason, 'no-common-length');
+  assert.strictEqual(noFit.diagnosis.people.length, 5);
+  console.log('diagnoseNoFit OK: correctly identified the trip-length split as the blocker');
+
   console.log('\nALL SMOKE TESTS PASSED');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

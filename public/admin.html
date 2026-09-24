@@ -94,7 +94,33 @@
         '<p><a href="/">← Back to the app</a></p>';
     }
 
-    function resultsTable(res, friends) {
+    function diagnosisCard(dx, options) {
+      function labelOf(list, id) {
+        for (var i = 0; i < list.length; i++) if (list[i][0] === id) return list[i][1];
+        return String(id);
+      }
+      if (!dx) return '';
+      if (dx.reason === 'no-common-length') {
+        var groups = {};
+        dx.people.forEach(function (p) {
+          var key = p.lengths.slice().sort().join(',') || '(none)';
+          (groups[key] = groups[key] || []).push(p.name);
+        });
+        var lines = Object.keys(groups).map(function (k) {
+          var labels = (k === '(none)' ? [] : k.split(',')).map(function (id) { return labelOf(options.lengths, id); });
+          return '<b>' + esc(groups[k].join(', ')) + '</b>: ' + (labels.length ? esc(labels.join(' / ')) : 'no length picked');
+        });
+        return '<div class="card warn"><b>Nobody has a trip length everyone agrees on.</b><br>' + lines.join('<br>') + '</div>';
+      }
+      if (dx.reason === 'closest-blocked') {
+        return '<div class="card warn"><b>Even the closest options still block at least ' + dx.minBlocked + ' ' +
+          (dx.minBlocked === 1 ? 'person' : 'people') + '</b>' +
+          (dx.sampleReason ? ', most often because: <i>' + esc(dx.sampleReason) + '</i>.' : '.') + '</div>';
+      }
+      return '';
+    }
+
+    function resultsTable(res, friends, options) {
       function cell(o, n) {
         var r = o.people.filter(function (x) { return x.name === n; })[0];
         if (!r) return '<td class="muted">—</td>';
@@ -117,6 +143,7 @@
         friends.map(function (n) { return '<th>' + esc(n) + '</th>'; }).join('') + '</tr>';
       return '<p class="muted">' + res.candidatesChecked + ' options checked · ' + res.submittedCount + ' of ' + res.totalFriends +
         ' responses · ranking: ' + (res.rankingMode === 'average' ? 'average' : 'weakest (fairest)') + '</p>' +
+        (res.top.length ? '' : diagnosisCard(res.diagnosis, options)) +
         '<div class="tablewrap"><table>' + head + rows(res.top, false) + '</table></div>' +
         '<h2 style="margin-top:18px">Near misses (one person blocked)</h2>' +
         '<div class="tablewrap"><table>' + head + rows(res.nearMisses, true) + '</table></div>';
@@ -179,7 +206,7 @@
         '<button class="btn" data-a="json">Download everything (JSON)</button></div></div></div>';
 
       /* results */
-      h += '<div class="card"><h2>Results</h2>' + resultsTable(d.results, c.friends) + '</div>';
+      h += '<div class="card"><h2>Results</h2>' + resultsTable(d.results, c.friends, st.options) + '</div>';
 
       /* destinations */
       h += '<div class="card"><h2>Destinations ' + (d.destinationsCustom ? '(custom)' : '(built-in)') + '</h2>' +

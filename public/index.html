@@ -531,6 +531,7 @@
       h += '<div class="label">Who are you?</div><div class="grid">' + c.friends.map(function (f) {
         return opt('pick', '', f, f, m[f] ? '✓ Submitted. Tap to view or edit' : 'Not submitted yet', !!m[f]);
       }).join('') + '</div>';
+      h += '<p class="hint center" style="margin-top:24px">Organising this trip? <a class="link" href="/admin">Admin login →</a></p>';
       return h;
     }
 
@@ -849,9 +850,7 @@
         : 'Best average: ranked by the group’s <b>average</b> happiness.') +
         (S.resLoading ? ' <i>Updating…</i>' : '') + '</p>';
 
-      if (!r.top.length) {
-        h += '<div class="card warn"><b>No trip fits everyone yet.</b><br>The options below are blocked for just one person. The ❌ shows what would need to change.</div>';
-      }
+      if (!r.top.length) h += noFitCard(r.diagnosis, r.nearMisses.length);
       h += r.top.map(function (o) { return optionCard(o, false); }).join('');
 
       if (r.top.length) h += freezeCard(r);
@@ -863,6 +862,29 @@
       h += nudgeCard();
       h += '<p class="hint">Scores are 0–100 per person, based on vibe, budget, pace, travel time and interests. Costs are rough estimates.</p>';
       return h;
+    }
+
+    function noFitCard(dx, nearCount) {
+      if (dx && dx.reason === 'no-common-length') {
+        var groups = {};
+        dx.people.forEach(function (p) {
+          var key = p.lengths.slice().sort().join(',') || '(none)';
+          (groups[key] = groups[key] || []).push(p.name);
+        });
+        var lines = Object.keys(groups).map(function (k) {
+          var labels = (k === '(none)' ? [] : k.split(',')).map(function (id) { return labelOf(O().lengths, id); });
+          return '<b>' + esc(groups[k].join(', ')) + '</b>: ' + (labels.length ? esc(labels.join(' / ')) : 'no length picked');
+        });
+        return '<div class="card warn"><b>Nobody has a trip length everyone agrees on.</b><br>' + lines.join('<br>') +
+          '<br><br>At least one person needs to go back and accept another length before any option can appear.</div>';
+      }
+      if (dx && dx.reason === 'closest-blocked') {
+        return '<div class="card warn"><b>No trip fits everyone yet.</b><br>Even the closest options still block at least ' + dx.minBlocked +
+          ' ' + (dx.minBlocked === 1 ? 'person' : 'people') +
+          (dx.sampleReason ? ', most often because: <i>' + esc(dx.sampleReason) + '</i>.' : '.') + '</div>';
+      }
+      return '<div class="card warn"><b>No trip fits everyone yet.</b>' +
+        (nearCount ? '<br>The options below are blocked for just one person. The ❌ shows what would need to change.' : '') + '</div>';
     }
 
     function freezeCard(r) {
